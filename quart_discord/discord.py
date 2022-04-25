@@ -4,6 +4,7 @@ import functools
 from quart import request, session, redirect, url_for, current_app
 from requests_oauthlib import OAuth2Session
 from .exceptions import AccessDenied, HTTPException, NotSignedIn
+from .objects import Guild, User, Member
 
 
 class DiscordOAuth:
@@ -12,71 +13,93 @@ class DiscordOAuth:
         self.client_id = client_id
         self.client_secret = client_secret
         self.redirect_uri = redirect_uri
-        self.debug = debug
-        self.api_base_url = "https://discordapp.com/api"
 
-    def print_debug(self, message: str):
+        self.cache = None
+        self.debug = debug
+
+        self.api_base_url = "https://discordapp.com/api/v9"
+
+    def print_debug(self, message: str) -> None:
+        """ The debug method, idk """
         if self.debug:
             print(message)
 
-    def fetch_user(self):
-        if "oauth2_token" not in session:
+    def query(self, path: str) -> dict:
+        """ Make a query to the Discord API """
+        oauth2_token = session.get("oauth2_token", None)
+        if not oauth2_token:
             raise NotSignedIn()
 
-        discord = self.make_session(token=session["oauth2_token"])
-        user = discord.get(f"{self.api_base_url}/users/@me").json()
-        if "id" not in user:
+        discord = self.make_session(token=oauth2_token)
+        r = discord.get(f"{self.api_base_url}{path}")
+
+        if r.status_code == 429:
+            raise HTTPException(r.status_code, r.json(), path)
+        return r.json()
+
+    def fetch_user(self) -> User:
+        """ Fetch the user from the Discord API """
+        data = self.query("/users/@me")
+        if not data.get("id", None):
             return None
+        return User(data)
 
-        print(user)
-        img_format = "gif" if user["avatar"].startswith("a_") else "png"
-        return {
-            "expire": time.time() + 3600,
-            "id": int(user["id"]),
-            "user": f"{user['username']}#{user['discriminator']}",
-            "username": user["username"],
-            "avatar": f"https://cdn.discordapp.com/avatars/{user['id']}/{user['avatar']}.{img_format}?size=1024",
-        }
+    def guilds(self, guild_id: int = None) -> list[Guild] or Guild:
+        """ Fetch the guilds of @me user """
+        data = self.query("/users/@me/guilds")
+        all_guilds = [Guild(guild) for guild in data]
+        if not guild_id:
+            return all_guilds
+        return next((g for g in all_guilds if g.id == guild_id), None)
 
-    def user(self):
-        cache = session.get("discord_user", None)
-        if not cache:
-            cache = self.fetch_user()
-            session["discord_user"] = cache
+    def member(self, guild_id: int) -> Member:
+        """ Fetch @me member info from a guild """
+        guild = self.guilds(guild_id)
+        if not guild:
+            return None
+        data = self.query(f"/users/@me/guilds/{guild_id}/member")
+        return Member(data, guild.__dict__)
+
+    def user(self) -> User:
+        """ Return User object or fetch if cache is old or not set """
+        if not self.cache:
+            self.cache = self.fetch_user()
             self.print_debug("DiscordOAuth.user: request")
-        if cache["expire"] < time.time():
-            cache = self.fetch_user()
-            session["discord_user"] = cache
-        self.print_debug(f"DiscordOAuth.user: {cache}")
-        return cache
+        if self.cache.expire < time.time():
+            self.cache = self.fetch_user()
+            self.print_debug("DiscordOAuth.user: cache expired request")
+        self.print_debug(f"DiscordOAuth.user: {self.cache}")
+        return self.cache
 
-    def token_update(self, token):
+    def token_update(self, token) -> str:
+        """ Update the oauth token in the session """
         session["oauth2_token"] = token
+        return token
 
     def require_discord_oauth(self, func):
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
-            if "oauth2_state" not in session:
+            if not session.get("oauth2_state", None):
                 return redirect(url_for(".login"))
-            return await current_app.ensure_async(func)(
-                *args, **kwargs
-            )
+            return await current_app.ensure_async(func)(*args, **kwargs)
         return wrapper
 
-    def prepare_login(self, *scopes):
-        scope = request.args.get(*scopes)
+    def prepare_login(self, *scopes) -> str:
+        """ Prepare the login url """
+        scope = request.args.get("scope", " ".join(scopes))
         discord = self.make_session(scope=scope.split(" "))
-
         authorization_url, state = discord.authorization_url(
             f"{self.api_base_url}/oauth2/authorize"
         )
         session["oauth2_state"] = state
         return redirect(authorization_url)
 
-    def clear_session(self):
+    def clear_session(self) -> None:
+        """ Clear the session """
         return session.clear()
 
-    def make_session(self, token=None, state=None, scope=None):
+    def make_session(self, token=None, state=None, scope=None) -> OAuth2Session:
+        """ Make a new OAuth2 session """
         return OAuth2Session(
             client_id=self.client_id,
             token=token, state=state, scope=scope,
@@ -89,7 +112,8 @@ class DiscordOAuth:
             token_updater=self.token_update,
         )
 
-    def callback(self):
+    def callback(self, redirect_url_for: str = None) -> str:
+        """ Callback from Discord """
         error = request.args.get("error")
         if error:
             if error == "access_denied":
@@ -101,4 +125,7 @@ class DiscordOAuth:
             authorization_response=request.url
         )
         self.token_update(token)
+
+        if redirect_url_for:
+            return redirect(url_for(redirect_url_for))
         return token

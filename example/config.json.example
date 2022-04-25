@@ -1,0 +1,7 @@
+{
+  "client_id": 1337,
+  "client_secret": "",
+  "redirect_uri": "http://",
+  "debug": true,
+  "port": 8080
+}

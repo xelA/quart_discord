@@ -6,8 +6,16 @@ class AccessDenied(Exception):
 
 class HTTPException(Exception):
     """ Base exception for HTTP errors """
-    def __init__(self, message: str):
-        super().__init__(message)
+    def __init__(self, code: int, data: dict, path: str):
+        self.path = path
+        self.code = code
+        self.message = data.get("message", "")
+        self.retry_after = data.get("retry_after", 0)
+
+        super().__init__(
+            f"HTTP {self.code}: {self.message} | {self.path} "
+            f"(retry after {self.retry_after} seconds)"
+        )
 
 
 class NotSignedIn(Exception):
