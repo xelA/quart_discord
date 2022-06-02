@@ -14,8 +14,8 @@ class DiscordOAuth:
         self.client_secret = client_secret
         self.redirect_uri = redirect_uri
 
-        self.cache = None
         self.debug = debug
+        self._cache_seconds = 15
 
         self.api_base_url = "https://discordapp.com/api/v9"
 
@@ -37,17 +37,27 @@ class DiscordOAuth:
             raise HTTPException(r.status_code, r.json(), path)
         return r.json()
 
-    def fetch_user(self) -> User:
-        """ Fetch the user from the Discord API """
-        data = self.query("/users/@me")
-        if not data.get("id", None):
-            return None
-        return User(data)
-
     def guilds(self, guild_id: int = None) -> list[Guild] or Guild:
         """ Fetch the guilds of @me user """
-        data = self.query("/users/@me/guilds")
-        all_guilds = [Guild(guild) for guild in data]
+        if not session.get("discord_guilds", None):
+            data = self.query("/users/@me/guilds")
+            session["discord_guilds"] = {
+                "guilds": data,
+                "expire": time.time() + self._cache_seconds
+            }
+
+        if session["discord_guilds"]["expire"] < time.time():
+            data = self.query("/users/@me/guilds")
+            session["discord_guilds"] = {
+                "guilds": data,
+                "expire": time.time() + self._cache_seconds
+            }
+
+        all_guilds = [
+            Guild(guild) for guild in
+            session["discord_guilds"]["guilds"]
+        ]
+
         if not guild_id:
             return all_guilds
         return next((g for g in all_guilds if g.id == guild_id), None)
@@ -62,14 +72,31 @@ class DiscordOAuth:
 
     def user(self) -> User:
         """ Return User object or fetch if cache is old or not set """
-        if not self.cache:
-            self.cache = self.fetch_user()
+        if not session.get("discord_user", None):
+            data = self.query("/users/@me")
+            session["discord_user"] = {
+                "id": data.id,
+                "name": data.name,
+                "avatar": data.avatar,
+                "discriminator": data.discriminator,
+                "expire": time.time() + self._cache_seconds
+            }
             self.print_debug("DiscordOAuth.user: request")
-        if self.cache.expire < time.time():
-            self.cache = self.fetch_user()
+
+        if session["discord_user"]["expire"] < time.time():
+            data = self.query("/users/@me")
+            session["discord_user"] = {
+                "id": data.id,
+                "name": data.name,
+                "avatar": data.avatar,
+                "discriminator": data.discriminator,
+                "expire": time.time() + self._cache_seconds
+            }
             self.print_debug("DiscordOAuth.user: cache expired request")
-        self.print_debug(f"DiscordOAuth.user: {self.cache}")
-        return self.cache
+
+        json_to_object = User(session["discord_user"])
+        self.print_debug(f"DiscordOAuth.user: {json_to_object}")
+        return json_to_object
 
     def token_update(self, token) -> str:
         """ Update the oauth token in the session """

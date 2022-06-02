@@ -1,5 +1,3 @@
-import time
-
 from . import utils
 
 DISCORD_CDN = "https://cdn.discordapp.com"
@@ -13,7 +11,6 @@ class User:
         self.discriminator = data["discriminator"]
         self.avatar = data["avatar"]
         self.banner = data["banner"]
-        self.expire = time.time() + expire
 
     def __int__(self):
         return self.id
