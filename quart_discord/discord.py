@@ -75,7 +75,7 @@ class DiscordOAuth:
         if not session.get("discord_user", None):
             data = self.query("/users/@me")
             session["discord_user"] = {
-                "id": data["id"], "username": data["username"],
+                "id": data["id"], "username": data["username"], "banner": data["banner"],
                 "avatar": data["avatar"], "discriminator": data["discriminator"],
                 "expire": time.time() + self._cache_seconds
             }
@@ -84,7 +84,7 @@ class DiscordOAuth:
         if session["discord_user"]["expire"] < time.time():
             data = self.query("/users/@me")
             session["discord_user"] = {
-                "id": data["id"], "username": data["username"],
+                "id": data["id"], "username": data["username"], "banner": data["banner"],
                 "avatar": data["avatar"], "discriminator": data["discriminator"],
                 "expire": time.time() + self._cache_seconds
             }

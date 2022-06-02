@@ -4,7 +4,7 @@ DISCORD_CDN = "https://cdn.discordapp.com"
 
 
 class User:
-    def __init__(self, data: dict, expire: int = 3600):
+    def __init__(self, data: dict):
         self.id = int(data["id"])
         self.name = data["username"]
         self.created_at = utils.snowflake_time(self.id)
