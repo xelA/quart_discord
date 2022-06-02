@@ -91,5 +91,5 @@ class Guild:
 
     @property
     def icon_url(self):
-        img_format = "gif" if self.banner.startswith("a_") else "png"
+        img_format = "gif" if self.icon.startswith("a_") else "png"
         return f"{DISCORD_CDN}/icons/{self.id}/{self.icon}.{img_format}"
