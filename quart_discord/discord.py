@@ -99,7 +99,7 @@ class DiscordOAuth:
 
         if not data:
             discord_data = self.query("/users/@me")
-            session["user_id"] = data['id']
+            session["user_id"] = discord_data['id']
 
             data = self._cache.insert(f"USER:{data['id']}", {
                 "id": discord_data["id"],
