@@ -75,8 +75,7 @@ class DiscordOAuth:
         if not data:
             discord_data = self.query("/users/@me/guilds")
             data = self._cache.insert(f"GUILDS:{user_id}", {
-                "guilds": discord_data,
-                "expire": time.time() + self._cache_seconds
+                "guilds": discord_data
             })
 
         all_guilds = [Guild(guild) for guild in data["guilds"]]
