@@ -13,7 +13,7 @@ class Cache:
         self._cache_time = cache_time
 
     def _check_clean(self):
-        for g in self.storage:
+        for g in list(self.storage):
             if self.storage[g]["expire"] < time.time():
                 del self.storage[g]
 
