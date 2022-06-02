@@ -80,6 +80,7 @@ class DiscordOAuth:
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
             if not session.get("oauth2_state", None):
+                session["redirect_url"] = request.url
                 return redirect(url_for(".login"))
             return await current_app.ensure_async(func)(*args, **kwargs)
         return wrapper
