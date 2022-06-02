@@ -101,7 +101,7 @@ class DiscordOAuth:
             discord_data = self.query("/users/@me")
             session["user_id"] = discord_data['id']
 
-            data = self._cache.insert(f"USER:{data['id']}", {
+            data = self._cache.insert(f"USER:{discord_data['id']}", {
                 "id": discord_data["id"],
                 "username": discord_data["username"],
                 "banner": discord_data["banner"],
