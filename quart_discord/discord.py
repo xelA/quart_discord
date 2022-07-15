@@ -51,7 +51,7 @@ class DiscordOAuth:
         if self.debug:
             print(message)
 
-    def query(self, method: str, path: str) -> dict:
+    def query(self, method: str, path: str = "GET") -> dict:
         """ Make a query to the Discord API """
         oauth2_token = session.get("oauth2_token", None)
         if not oauth2_token:
