@@ -51,14 +51,15 @@ class DiscordOAuth:
         if self.debug:
             print(message)
 
-    def query(self, path: str) -> dict:
+    def query(self, path: str, method: str = "get") -> dict:
         """ Make a query to the Discord API """
         oauth2_token = session.get("oauth2_token", None)
         if not oauth2_token:
             raise NotSignedIn()
 
         discord = self.make_session(token=oauth2_token)
-        r = discord.get(f"{self.api_base_url}{path}")
+        discord_query = getattr(discord, method)
+        r = discord_query(f"{self.api_base_url}{path}")
 
         if r.status_code == 429:
             raise HTTPException(r.status_code, r.json(), path)
